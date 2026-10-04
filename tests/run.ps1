@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $foxRoot = Split-Path $PSScriptRoot -Parent
 $foxCompiler = 'C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe'
-& $foxCompiler /nologo /utf8output /target:exe "/out:$PSScriptRoot\LogicTests.exe" "/resource:$foxRoot\src\FoxMind.corpus.tsv,FoxMind.corpus.tsv" "$foxRoot\src\Companion.cs" "$foxRoot\src\FoxMind.cs" "$foxRoot\src\Preferences.cs" "$foxRoot\src\ConversationAnalyzer.cs" "$PSScriptRoot\LogicTests.cs"
+& $foxCompiler /nologo /utf8output /target:exe "/out:$PSScriptRoot\LogicTests.exe" "/resource:$foxRoot\src\FoxMind.corpus.tsv,FoxMind.corpus.tsv" "$foxRoot\src\Companion.cs" "$foxRoot\src\FoxMind.cs" "$foxRoot\src\Preferences.cs" "$foxRoot\src\ConversationAnalyzer.cs" "$foxRoot\src\DialogueRules.cs" "$PSScriptRoot\LogicTests.cs"
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed' }
 & "$PSScriptRoot/LogicTests.exe"
 if ($LASTEXITCODE -ne 0) { throw 'Behavior tests failed' }

@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace Lisichka {
     public enum Pose { Sit, Lie, Sleep }
     public class Reply {
-        public string Text; public Pose? Action; public bool Affection;
+        public string Text; public Pose? Action; public bool Affection;public int TailAction;
         public Reply(string text, Pose? action = null, bool affection = false) { Text=text; Action=action; Affection=affection; }
     }
     public static class Intent {
@@ -31,7 +31,7 @@ namespace Lisichka {
         public static bool Positive(string t) { t=Normalize(t); return Has(t,@"\b(?:хорошо|отлично|прекрасно|супер|замечательно|счастлив\w*|радуюсь|радост\w*|получилось|классно|здорово|лучше|неплохо|нормально)\b") && !Has(t,@"\bне\s+(?:очень\s+)?(?:хорошо|отлично|лучше|получилось)"); }
     }
     public class Companion {
-        readonly Random random=new Random(); readonly FoxMind mind=new FoxMind();readonly ConversationAnalyzer analyzer=new ConversationAnalyzer(); string mood="neutral"; bool asked;
+        readonly Random random=new Random(); readonly FoxMind mind=new FoxMind();readonly ConversationAnalyzer analyzer=new ConversationAnalyzer();readonly DialogueRules dialogue=new DialogueRules(); string mood="neutral"; bool asked;
         public void SetName(string name){mind.SetName(name);}
         string Pick(params string[] s) { return s[random.Next(s.Length)]; }
         public static string Greeting(DateTime now) {
@@ -43,14 +43,15 @@ namespace Lisichka {
         public static bool Night(DateTime now) { return now.Hour<7; }
         public string CheckIn() { asked=true; return Pick("Как дела? 🧡 Я устроилась рядом и готова послушать.","Как твоё настроение? Хочешь рассказать, как прошёл день? 🧡"); }
         public Reply Respond(string text) {
-            Reply analyzed=analyzer.Respond(text);if(analyzed!=null){analyzed.Action=Intent.Command(text);return analyzed;}
+            Reply conversational=dialogue.Respond(text);if(conversational!=null){if(!conversational.Action.HasValue)conversational.Action=Intent.Command(text);if(text.Length>250&&!conversational.Action.HasValue&&conversational.TailAction==0){var details=analyzer.Respond(text);if(details!=null)conversational.Text+="\n"+details.Text;}return conversational;}
+            Reply analyzed=analyzer.Respond(text);if(analyzed!=null){dialogue.ClearContext();analyzed.Action=Intent.Command(text);return analyzed;}
             Pose? p=Intent.Command(text);
             if(p==Pose.Sleep) return new Reply("Свернусь клубочком… Сладких снов, если тоже собираешься отдыхать 🧡",p);
             if(p==Pose.Lie) return new Reply("Устроюсь поудобнее рядом с тобой 🧡",p);
             if(p==Pose.Sit) return new Reply("Вот и я, сижу рядом и слушаю 🧡",p);
             string t=Intent.Normalize(text);
             Reply learned=mind.Respond(text);
-            if(learned!=null){if(Intent.Negative(t))mood="sad";else if(Intent.Positive(t))mood="happy";return learned;}
+            if(learned!=null){dialogue.ClearContext();if(Intent.Negative(t))mood="sad";else if(Intent.Positive(t))mood="happy";return learned;}
             if(Regex.IsMatch(t,@"\b(?:поглад\w*|обним\w*|обнять|почеш\w*|ласк\w*)\b")) return new Reply("Мр-р… Спасибо за тепло 🧡",null,true);
             if(Intent.Negative(t)) {
                 mood="sad"; asked=true;

@@ -33,10 +33,17 @@ namespace Lisichka {
             new Topic("самочувствие",@"здоров\w*|забол\w*|болею|самочувств\w*|температур\w*|врач\w*","Жаль, если самочувствие подводит. Я не умею определять причину симптомов или назначать лечение.","Тебе сейчас хочется поговорить или лучше устроить тихую передышку?"),
             new Topic("новости",@"новост\w*|новость|событи\w*|произошло|случилось","Я не получаю новости из интернета, но могу обсудить то, что ты расскажешь.","Что в этой новости тебя больше всего задело или порадовало?")
         };
-        List<Topic> previous=new List<Topic>();string previousText="";
+        List<Topic> previous=new List<Topic>();string previousText="";int contextAge;
         public static int HeartCount(string text,bool affection){string n=Intent.Normalize(text);if(Intent.Negative(n))return 2;if(Regex.IsMatch(n,@"\b(?:побед\w*|поступил\w*|сдал\w*|получилось|повысили|свадьб\w*|родил\w*|исполнил\w*)\b"))return 12;if(affection)return Regex.IsMatch(n,@"обожа|сильно|очень")?10:6;if(Intent.Positive(n))return 5;if(Regex.IsMatch(n,@"спасибо|благодар"))return 3;return 1;}
         public Reply Respond(string text){
             string normalized=Intent.Normalize(text);
+            contextAge++;
+            if(contextAge<=3&&previous.Count>0&&previous[0].Name=="работа"){
+                if(Regex.IsMatch(normalized,@"^(?:разговор|разговор с кем то|поговорить|с начальником|с коллегой)$"))return new Reply("Давай подготовимся к разговору. С кем предстоит говорить и чего ты хочешь добиться? Можно начать с фразы: «Когда происходит …, мне …; я хотел бы …» 🧡");
+                if(Regex.IsMatch(normalized,@"^(?:срок|сроки|дедлайн)$"))return new Reply("Давай разберём срок: когда нужно закончить, что уже готово и что обязательно успеть? Если объём не помещается, можно обсудить приоритеты с тем, кто поставил задачу 🧡");
+                if(Regex.IsMatch(normalized,@"^(?:нагрузка|много работы|слишком много)$"))return new Reply("При большой нагрузке полезно выписать задачи и выбрать одну ближайшую. Что можно отложить, упростить или обсудить с коллегами? 🧡");
+            }
+            if(contextAge<=3&&previous.Count>0&&Regex.IsMatch(normalized,@"^(?:да|давай|хочу|расскажу|поговорим)$"))return new Reply("Давай продолжим тему «"+previous[0].Name+"». "+previous[0].Question+" 🧡");
             if(Regex.IsMatch(normalized,@"\b(?:я спать|я иду спать|пойду спать|отправляюсь спать|спокойной ночи|добрых снов|сладких снов)\b"))return new Reply("Спокойной ночи! Пусть отдых будет тёплым, а утро — спокойным 🧡",Intent.Command(text));
             var sum=Regex.Match(text.Trim(),@"^(?:сколько будет\s+)?(-?\d{1,10}(?:[.,]\d{1,6})?)\s*([+*/×÷−-])\s*(-?\d{1,10}(?:[.,]\d{1,6})?)\s*[=?]?$",RegexOptions.IgnoreCase);
             if(sum.Success){double a=double.Parse(sum.Groups[1].Value.Replace(',','.'),CultureInfo.InvariantCulture),b=double.Parse(sum.Groups[3].Value.Replace(',','.'),CultureInfo.InvariantCulture);string op=sum.Groups[2].Value;if((op=="/"||op=="÷")&&b==0)return new Reply("На ноль делить нельзя 🧡");double result=op=="+"?a+b:op=="-"||op=="−"?a-b:op=="*"||op=="×"?a*b:a/b;return new Reply("Получается "+result.ToString("G12",CultureInfo.GetCultureInfo("ru-RU"))+" 🧡");}
@@ -45,7 +52,7 @@ namespace Lisichka {
             if(revisit&&previousText.Length>0){text=previousText;normalized=Intent.Normalize(text);}
             var found=topics.Select(t=>new{Topic=t,Count=Regex.Matches(normalized,@"\b(?:"+t.Pattern+@")\b").Count}).Where(x=>x.Count>0).OrderByDescending(x=>x.Count).Select(x=>x.Topic).Take(3).ToList();
             if(found.Count==0&&text.Length<250)return null;
-            previous=found;previousText=text;
+            previous=found;previousText=text;contextAge=0;
             bool negative=Intent.Negative(normalized),positive=Intent.Positive(normalized);
             string mood=negative&&positive?"В сообщении есть и приятное, и то, что огорчает. ":negative?"Похоже, эта история сейчас непростая для тебя. ":positive?"Как приятно читать о хорошем! ":"";
             if(found.Count==0){string excerpt=Regex.Split(text,@"[.!?\n]+").FirstOrDefault(s=>s.Trim().Length>15)??text;excerpt=excerpt.Trim();if(excerpt.Length>160)excerpt=excerpt.Substring(0,157)+"…";return new Reply(mood+"Прочитала сообщение. У меня пока нет готовых знаний по этой теме. Ты написал: «"+excerpt+"». Что здесь самое важное для тебя и какой ответ был бы полезен? 🧡");}

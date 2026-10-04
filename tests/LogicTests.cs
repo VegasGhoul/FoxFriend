@@ -53,6 +53,23 @@ class LogicTests {
         Expect(analyzer.Respond(story).Text.Contains("Выделила темы"),"long topic analysis");Expect(analyzer.Respond("второе").Text.Contains("книги"),"topic selection context");Expect(analyzer.Respond("выдели главное").Text.Contains("работа"),"recall previous story");
         Expect(analyzer.Respond(new string('я',30000)).Text.Contains("нет готовых знаний"),"long unknown honest fallback");
         Expect(ConversationAnalyzer.HeartCount("Я победил",false)==12,"achievement hearts");Expect(ConversationAnalyzer.HeartCount("Победил, но мне грустно",false)==2,"negative mood takes priority");Expect(ConversationAnalyzer.HeartCount("Очень тебя люблю",true)==10,"affection hearts");Expect(ConversationAnalyzer.HeartCount("Привет",false)==1,"neutral hearts");
+        foreach(var phrase in new[]{"Я пошел спать","Я пошла спать","пойду уже спать","Я иду спать"}){var r=new Companion().Respond(phrase);Expect(r.Text.Contains("ноч")||r.Text.Contains("снов"),"bedtime: "+phrase);Expect(!r.Action.HasValue,"user bedtime is not pet command: "+phrase);}
+        foreach(var phrase in new[]{"Повеляй хвостиком","Повиляй хвостиком","Помаши хвостом","Можешь пошевелить хвостиком?"})Expect(new Companion().Respond(phrase).TailAction==1,"tail request: "+phrase);
+        Expect(new Companion().Respond("Не виляй хвостиком").TailAction==-1,"stop tail");
+        Expect(new Companion().Respond("Можешь поддержать").Text.Contains("поддержу"),"support screenshot");
+        Expect(new Companion().Respond("Писимистично").Text.Contains("мрачным"),"pessimistic typo screenshot");
+        Expect(new Companion().Respond("спокойного дня").Text.Contains("И тебе"),"day wish screenshot");
+        Expect(new Companion().Respond("умница").Affection,"praise screenshot");
+        var workChat=new Companion();workChat.Respond("У меня сложности на работе");Expect(workChat.Respond("разговор").Text.Contains("С кем"),"work conversation screenshot");
+        var supportChat=new Companion();supportChat.Respond("Можешь поддержать");Expect(supportChat.Respond("выслушай").Text.Contains("слушаю"),"support remembers choice");
+        foreach(var pair in new[]{new[]{"Я злюсь","злост"},new[]{"Мне обидно","Больно"},new[]{"Я виноват","ошибку"},new[]{"Мне стыдно","стыдно"},new[]{"Я ревную","Ревность"},new[]{"Я завидую","Зависть"},new[]{"Ничего не хочется","хочется"},new[]{"Я растерян","название"},new[]{"Я не уверен в себе","строго"},new[]{"Я интроверт","тишине"},new[]{"Я экстраверт","общение"},new[]{"Я перфекционист","идеальный"},new[]{"Я оптимист","надежда"},new[]{"Я реалист","сложности"},new[]{"Я скептик","обещаний"}})Expect(new Companion().Respond(pair[0]).Text.Contains(pair[1]),"emotion/view: "+pair[0]);
+        Expect(new Companion().Respond("Я не злюсь").Text.Contains("не описывает"),"negated emotion");
+        Expect(new Companion().Respond("Я не пессимист, я реалист").Text.Contains("сложности"),"contrasting outlook");
+        Expect(new Companion().Respond("Мне и радостно и грустно").Text.Contains("одновременно"),"mixed feelings");
+        string thanks=new Companion().Respond("Спасибо за поддержку").Text.ToLowerInvariant();Expect(thanks.Contains("пожалуйста")||thanks.Contains("спасибо"),"thanks not support request");
+        var changedTopic=new Companion();changedTopic.Respond("Поддержи меня");changedTopic.Respond("Есть вопрос по работе");Expect(changedTopic.Respond("разговор").Text.Contains("С кем"),"new topic replaces support context");
+        Expect(new Companion().Respond("Я спать не хочу").Text.Contains("пока не"),"bedtime negation");
+        Expect(new Companion().Respond("Можешь повелять хвостиком?").TailAction==1,"tail infinitive typo");
         Console.WriteLine("PASS: "+n+" behavior checks");
     }
 }

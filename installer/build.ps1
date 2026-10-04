@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $foxRoot=Split-Path $PSScriptRoot -Parent
 $foxPackage=Join-Path $PSScriptRoot 'payload'
 New-Item -ItemType Directory -Path $foxPackage,(Join-Path $foxPackage 'assets') -Force | Out-Null
