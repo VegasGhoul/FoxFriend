@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 namespace Lisichka {
  // A bounded conversation guide: choices and follow-up questions, never invented facts.
@@ -19,34 +20,50 @@ namespace Lisichka {
    new Topic("Книги",@"книг\w*|чтени\w*|литератур\w*","Какую книгу ты читаешь или хотел бы обсудить? Можно назвать жанр.","Для воображаемой лисьей полки я бы выбрала сказки о доброте и приключениях. А что выбираешь ты?","Что тебя увлекает: язык, мир книги или персонажи?","Какой эпизод или герой показывает это лучше всего?","Согласен ли ты с решением героя? Почему?","С какой мыслью хотелось бы остаться после этой книги?"),
    new Topic("Твой день",@"день|дня|сегодняшн\w*","Какой момент сегодняшнего дня запомнился — приятный, трудный или просто необычный?","Мой день здесь складывается из наших разговоров и лисьих анимаций. А какая часть твоего дня была самой живой?","Что сделало этот момент заметным для тебя?","Хочется повторить что-то из сегодняшнего дня или изменить?","Какую маленькую заботу о себе можно оставить на вечер?","Что хотелось бы пожелать себе на завтра?")
   };
-  int nextBatch,step;Topic[] offered;Topic active;string lastDetail="";DateTime touched;
+  int nextBatch,step;Topic[] offered;Topic active;string lastDetail="",subject="",aspect="";DateTime touched;readonly HashSet<string> asked=new HashSet<string>();
   public bool Active {get{return active!=null;}}
   static bool Is(string t,string pattern){return Regex.IsMatch(t,@"^(?:"+pattern+@")$");}
   void Expire(){if(touched!=default(DateTime)&&DateTime.Now-touched>TimeSpan.FromMinutes(30)){active=null;offered=null;}}
-  public void End(){active=null;offered=null;lastDetail="";}
-  public string Suggest(){active=null;lastDetail="";offered=Enumerable.Range(0,3).Select(i=>topics[(nextBatch+i)%topics.Length]).ToArray();nextBatch=(nextBatch+3)%topics.Length;touched=DateTime.Now;return "Давай выберем что-нибудь по душе 🧡\n"+string.Join("\n",offered.Select((t,i)=>(i+1)+". "+t.Name))+"\nНапиши номер, название или «выбери сама». Можно попросить другие темы.";}
+  public void End(){active=null;offered=null;lastDetail="";subject="";aspect="";asked.Clear();}
+  string Ask(string question){return asked.Add(question)?question:"Можно добавить то, что тебе важно, или попросить другую тему.";}
+  string NextQuestion(){while(step<active.Questions.Length){string q=active.Questions[step++];if(asked.Add(q))return q;}return "Можем остаться с этой темой: расскажи то, что ещё хочется добавить. Или напиши «другие темы».";}
+  static string TitleFrom(string text){string value=Regex.Replace(text.Trim(),@"^(?:(?:я\s+)?(?:читаю|читал|читала|прочитал|прочитала|смотрю|смотрел|смотрела)\s+)?(?:(?:книг[ау]|фильм|роман|сериал)\s+)?","",RegexOptions.IgnoreCase).Trim(' ','«','»','"','.','!');return value;}
+  bool NamedWork {get{return active!=null&&(active.Name=="Книги"||active.Name=="Фильмы и сериалы");}}
+  string Memory(){return "Мы говорим о теме «"+active.Name+"». "+(subject.Length>0?"Название: «"+subject+"». ":"")+(lastDetail.Length>0?"Ты поделился: «"+lastDetail+"». ":"");}
+  public string Suggest(){End();offered=Enumerable.Range(0,3).Select(i=>topics[(nextBatch+i)%topics.Length]).ToArray();nextBatch=(nextBatch+3)%topics.Length;touched=DateTime.Now;return "Давай выберем что-нибудь по душе 🧡\n"+string.Join("\n",offered.Select((t,i)=>(i+1)+". "+t.Name))+"\nНапиши номер, название или «выбери сама». Можно попросить другие темы.";}
   public Reply Control(string text){Expire();string t=Intent.Normalize(text);
    if(Regex.IsMatch(t,@"\b(?:предложи|предложить|придумай|подскажи|посоветуй|выбери)\b.{0,35}\bтем\w*\b|\b(?:о чем|про что)\s+(?:нам\s+)?(?:поговорим|поговорить|поболтать|поболтаем)\b")||Is(t,@"(?:давай )?(?:другую тему|другие темы|еще темы|новую тему|смени тему|сменим тему|предложи что нибудь)"))return new Reply(Suggest());
    if((active!=null||offered!=null)&&(Is(t,@"(?:не хочу|не сейчас|хватит|стоп|закончим|закончим разговор|давай помолчим|не хочу говорить)")||Regex.IsMatch(t,@"^не хочу (?:говорить|обсуждать|разговаривать)\b"))){End();return new Reply("Хорошо, тему отложим. Побуду рядом без расспросов 🧡");}
-   if(active!=null&&Is(t,@"о чем мы говорили|какая у нас тема|напомни тему|что я сказал|что я говорила"))return new Reply("Мы говорим о теме «"+active.Name+"». "+(lastDetail.Length>0?"Ты поделился: «"+lastDetail+"». ":"")+"Можем продолжить или выбрать другую 🧡");
+   if(active!=null&&Is(t,@"о чем мы говорили|какая у нас тема|напомни тему|что я сказал|что я говорила|какую книгу я назвал|какую книгу я читаю|помнишь название"))return new Reply(Memory()+"Можем продолжить или выбрать другую 🧡");
+   if(active!=null&&Is(t,@"начнем заново|начнем сначала|давай сначала")){step=0;subject="";lastDetail="";aspect="";asked.Clear();return new Reply(active.Opening);}
+   if(NamedWork&&subject.Length>0&&Intent.Normalize(TitleFrom(text))==Intent.Normalize(subject)){touched=DateTime.Now;return new Reply("Да, «"+subject+"» — название помню. "+Ask("Ты хочешь рассказать о своих впечатлениях или задать вопрос об этом произведении?")+" 🧡");}
    Topic chosen=null;
    if(offered!=null){int index=Is(t,@"(?:давай |про |выбираю |хочу )?(?:1|первую|первое|первая)(?: тему)?")?0:Is(t,@"(?:давай |про |выбираю |хочу )?(?:2|вторую|второе|вторая)(?: тему)?")?1:Is(t,@"(?:давай |про |выбираю |хочу )?(?:3|третью|третье|третья)(?: тему)?")?2:-1;if(index>=0)chosen=offered[index];if(Is(t,@"выбери сама|на твой выбор|любую|давай|да"))chosen=offered[0];}
    bool explicitTopic=Regex.IsMatch(t,@"^(?:давай|поговорим|хочу поговорить|давай поговорим|давай поболтаем)\s+(?:о|об|про)\s+");
    if(chosen==null&&(offered!=null||active!=null||explicitTopic)){string title=Regex.Replace(t,@"^(?:(?:давай(?: поговорим| поболтаем)?|поговорим|хочу поговорить)\s+)?(?:(?:о|об|про)\s+)?","");chosen=topics.FirstOrDefault(x=>title==Intent.Normalize(x.Name)||Is(title,x.Pattern));}
-   if(chosen!=null){active=chosen;offered=null;step=0;lastDetail="";touched=DateTime.Now;return new Reply("Поговорим о теме «"+active.Name+"» 🧡 "+active.Opening);}
+   if(chosen!=null){touched=DateTime.Now;if(chosen==active)return new Reply("Да, продолжаем тему «"+active.Name+"». "+(subject.Length>0?"Обсуждаем «"+subject+"». ":"")+"Я не начинаю разговор заново — можешь продолжить с того места, на котором остановились 🧡");active=chosen;offered=null;step=0;lastDetail="";subject="";aspect="";asked.Clear();return new Reply("Поговорим о теме «"+active.Name+"» 🧡 "+active.Opening);}
    if(offered!=null&&Is(t,@"не знаю|не могу выбрать|затрудняюсь"))return new Reply("Можно начать без выбора: предложу «"+offered[0].Name+"». Напиши «давай», и начнём, или «другие темы» 🧡");
    return null;
   }
   public Reply Continue(string text){Expire();if(active==null)return null;string t=Intent.Normalize(text);touched=DateTime.Now;
    if(Is(t,@"а ты|а тебе|а у тебя|а что тебе нравится|что бы ты выбрала|твой выбор"))return new Reply(active.Self+" 🧡");
-   if(Is(t,@"не знаю|не помню|сложно сказать|без понятия"))return new Reply("Необязательно сразу находить ответ. "+active.Questions[Math.Min(step++,active.Questions.Length-1)]+" Можно и сменить тему 🧡");
+   if(Is(t,@"не знаю|не помню|сложно сказать|без понятия"))return new Reply("Необязательно сразу находить ответ. "+NextQuestion()+" 🧡");
+   if(NamedWork&&Regex.IsMatch(t,@"\b(?:о чем (?:она|он|эта книга)|расскажи (?:о|об|сюжет)|кто автор|ты (?:знаешь|читала|смотрела)|что ты знаешь|кто (?:такой|такая))\b"))return new Reply("У меня нет надёжной справки"+(subject.Length>0?" о «"+subject+"»":" об этом произведении")+", поэтому сюжет и факты я не буду придумывать. Могу обсудить твои впечатления или отрывок, который ты приведёшь 🧡");
+   if(NamedWork&&subject.Length==0&&text.Length<100&&!Regex.IsMatch(t,@"\b(?:да|нет|мне|нравится|люблю|герои|герой|персонажи|мир|сюжет|язык|атмосфера|фэнтези|фантастика|детектив|романтика|дальше|продолжай)\b")){subject=TitleFrom(text);lastDetail="";if(active.Name=="Книги")return new Reply("Поняла, речь о книге «"+subject+"». "+Ask("Ты ещё читаешь её или уже закончил? Буду осторожна со спойлерами 🧡"));return new Reply("Поняла, обсуждаем «"+subject+"». "+NextQuestion()+" 🧡");}
+   if(active.Name=="Книги"&&subject.Length>0){
+    if(Regex.IsMatch(t,@"\b(?:дочитал\w*|прочитал\w*|закончил\w*|читаю|начал\w*)\b"))return new Reply(Regex.IsMatch(t,@"не дочитал|еще читаю|только начал")?"Тогда обсудим только то, до чего ты дошёл. "+Ask("Что уже успело тебя заинтересовать?"):"Поняла. "+Ask("Какое впечатление оставила книга — увлекла, разочаровала или вызвала смешанные чувства?"));
+    if(Regex.IsMatch(t,@"\b(?:персонаж\w*|геро\w*)\b")){aspect="герои";return new Reply("Давай о героях. "+Ask("Кто тебе особенно интересен и чем — характером, поступками или тем, как меняется?"));}
+    if(Regex.IsMatch(t,@"\b(?:мир|мира|атмосфер\w*)\b")){aspect="мир";return new Reply("Тебя заинтересовал мир книги. "+Ask("Какая его деталь запомнилась: устройство мира, места или существа?"));}
+    if(Regex.IsMatch(t,@"\bдракон\w*\b")){aspect="драконы";return new Reply("Драконы — давай остановимся на них. "+Ask("Что тебе в них интересно: характер, способности или отношения с людьми?"));}
+    if(Regex.IsMatch(t,@"\b(?:язык|стиль|написан\w*)\b")){aspect="стиль";return new Reply("Тогда обсудим, как книга написана. "+Ask("Тебе ближе описания, диалоги или темп повествования?"));}
+    if(Regex.IsMatch(t,@"\b(?:сюжет|событи\w*|поворот\w*)\b")){aspect="сюжет";return new Reply("Давай о сюжете. "+Ask("Какой поворот или выбор персонажа тебе хочется обсудить?"));}
+   }
    bool forward=Is(t,@"да|ага|давай|дальше|продолжай|продолжим|еще|давай дальше");
    if(!forward){lastDetail=Regex.Replace(text,@"\s+"," ").Trim();if(lastDetail.Length>120)lastDetail=lastDetail.Substring(0,117)+"…";}
-   string lead=forward?"Продолжим 🧡 ":"Ты упомянул: «"+lastDetail+"». ";
+   string lead=forward?"Продолжим 🧡 ":aspect.Length>0?"Продолжим обсуждать: "+aspect+". ":"Поняла. ";
    if(active.Name=="Музыка"&&Regex.IsMatch(t,@"\b(?:рок|рока|роком)\b"))lead="В роке можно любить и энергию, и тексты, и звучание инструментов. ";
    if(active.Name=="Игры"&&Regex.IsMatch(t,@"\b(?:друз\w*|вместе|компани\w*)\b"))lead="Похоже, общая игра для тебя связана ещё и с общением. ";
-   if(step>=active.Questions.Length){step=0;return new Reply(lead+"Мы уже рассмотрели несколько сторон темы «"+active.Name+"». Что ещё хочется добавить? Или напиши «другие темы» 🧡");}
-   return new Reply(lead+active.Questions[step++]+" 🧡");
+   return new Reply(lead+NextQuestion()+" 🧡");
   }
  }
 }
