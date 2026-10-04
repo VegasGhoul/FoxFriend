@@ -32,6 +32,7 @@ namespace Lisichka {
     }
     public class Companion {
         readonly Random random=new Random(); readonly FoxMind mind=new FoxMind();readonly ConversationAnalyzer analyzer=new ConversationAnalyzer();readonly DialogueRules dialogue=new DialogueRules(); string mood="neutral"; bool asked;
+        readonly TopicConversation topics=new TopicConversation();
         public void SetName(string name){mind.SetName(name);}
         string Pick(params string[] s) { return s[random.Next(s.Length)]; }
         public static string Greeting(DateTime now) {
@@ -41,9 +42,12 @@ namespace Lisichka {
             return "Доброй ночи! 🧡";
         }
         public static bool Night(DateTime now) { return now.Hour<7; }
-        public string CheckIn() { asked=true; return Pick("Как дела? 🧡 Я устроилась рядом и готова послушать.","Как твоё настроение? Хочешь рассказать, как прошёл день? 🧡"); }
+        public string SuggestTopics(){dialogue.ClearContext();return topics.Suggest();}
+        public string CheckIn() { asked=true;if(!topics.Active&&random.Next(3)==0)return SuggestTopics(); return Pick("Как дела? 🧡 Я устроилась рядом и готова послушать.","Как твоё настроение? Хочешь рассказать, как прошёл день? 🧡"); }
         public Reply Respond(string text) {
+            Reply topicControl=topics.Control(text);if(topicControl!=null){dialogue.ClearContext();return topicControl;}
             Reply conversational=dialogue.Respond(text);if(conversational!=null){if(!conversational.Action.HasValue)conversational.Action=Intent.Command(text);if(text.Length>250&&!conversational.Action.HasValue&&conversational.TailAction==0){var details=analyzer.Respond(text);if(details!=null)conversational.Text+="\n"+details.Text;}return conversational;}
+            if(topics.Active&&!Intent.Command(text).HasValue){var match=mind.Classify(text);bool aside=match!=null&&System.Array.IndexOf(new[]{"love","love_question","hug","compliment","praise","thanks","sorry","greeting","farewell","bedtime_user","day_wish","time","date","identity","help","joke","quiet","support","sad","anxious","lonely","tired","happy","clarify"},match.Label)>=0;if(!aside){var next=topics.Continue(text);if(next!=null)return next;}else if(match.Label=="farewell"||match.Label=="quiet"||match.Label=="bedtime_user")topics.End();}
             Reply analyzed=analyzer.Respond(text);if(analyzed!=null){dialogue.ClearContext();analyzed.Action=Intent.Command(text);return analyzed;}
             Pose? p=Intent.Command(text);
             if(p==Pose.Sleep) return new Reply("Свернусь клубочком… Сладких снов, если тоже собираешься отдыхать 🧡",p);

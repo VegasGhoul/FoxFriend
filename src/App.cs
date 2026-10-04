@@ -141,6 +141,7 @@ namespace Lisichka {
                 foreach(double width in new[]{240.0,520.0})foreach(double height in new[]{100.0,360.0}){settings.CloudWidth=width;settings.CloudHeight=height;ApplySize();await Task.Delay(70);var checkRoot=(Grid)Content;if(cloudStack.TransformToAncestor(checkRoot).Transform(new Point(0,cloudStack.ActualHeight)).Y>stage.TransformToAncestor(checkRoot).Transform(new Point(0,0)).Y)throw new Exception("Cloud size overlaps pet");}settings.CloudWidth=330;settings.CloudHeight=190;ApplySize();
                 HideCompanion();if(IsVisible)throw new Exception("Hide did not hide whole companion");ShowCompanion();OpenSettings();await Task.Delay(150);SaveWindowRender(settingsWindow,Path.Combine(folder,"Settings.png"));settingsWindow.Close();
                 var gift=new GiftWindow(sprites[0]);gift.Loaded+=async delegate{await Task.Delay(100);SaveWindowRender(gift,Path.Combine(folder,"Gift-closed.png"));await gift.Tap();await Task.Delay(420);if(!gift.IsVisible||gift.ClickCount!=1)throw new Exception("Gift first tap");await gift.Tap();await Task.Delay(420);if(!gift.IsVisible||gift.ClickCount!=2)throw new Exception("Gift second tap");Task opening=gift.Tap();await Task.Delay(1050);SaveWindowRender(gift,Path.Combine(folder,"Gift-opening.png"));await opening;};if(gift.ShowDialog()!=true||gift.ClickCount!=3)throw new Exception("Gift did not open after third tap");
+                input.Text="Предложи тему разговора";await Submit();if(!history.Last().content.Contains("1. Музыка"))throw new Exception("Topic menu missing");input.Text="1";await Submit();input.Text="Мне нравится рок";await Submit();if(history.Last().content.IndexOf("В роке",StringComparison.OrdinalIgnoreCase)<0)throw new Exception("Topic conversation lost context");SaveRender(Path.Combine(folder,"Topic-chat.png"));
                 for(int i=0;i<15;i++)AddLine(new string('я',2000),i%2==0);
                 await Task.Delay(400);SaveRender(Path.Combine(folder,"Live-LongChat.png"));
                 var root=(Grid)Content;double bottom=cloudStack.TransformToAncestor(root).Transform(new Point(0,cloudStack.ActualHeight)).Y;double top=stage.TransformToAncestor(root).Transform(new Point(0,0)).Y;
@@ -177,6 +178,7 @@ namespace Lisichka {
             var contents=new StackPanel(); cloud.Child=contents;
             var header=new DockPanel();cloudHeader=header;
             var controls=new StackPanel {Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right};
+            controls.Children.Add(SmallButton("☷","Предложить темы разговора",delegate {SetCloudCompact(false);Say(companion.SuggestTopics());}));
             controls.Children.Add(SmallButton("−","Оставить только поле ответа",delegate {SetCloudCompact(true);}));
             controls.Children.Add(SmallButton("⚙","Настройки",delegate {OpenSettings();}));
             controls.Children.Add(SmallButton("×","Закрыть переписку, оставить поле ответа",delegate {SetCloudCompact(true);})); DockPanel.SetDock(controls,Dock.Right); header.Children.Add(controls);
@@ -292,10 +294,10 @@ namespace Lisichka {
             if(args.Contains("--render-check")){new FoxWindow(true).RenderChecks(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"tests","renders"));return;}
             if(args.Contains("--enable-startup")){Startup.Set(true);return;}
             if(args.Contains("--disable-startup")){Startup.Set(false);return;}
-            bool first;using(var mutex=new Mutex(true,"Local\\Lisichka.DesktopPet",out first)){
-                if(!first){try{using(var show=EventWaitHandle.OpenExisting("Local\\FoxFriend.Show"))show.Set();}catch(WaitHandleCannotBeOpenedException){}return;}
+            string suffix=args.Contains("--smoke")?".Smoke":"";bool first;using(var mutex=new Mutex(true,"Local\\Lisichka.DesktopPet"+suffix,out first)){
+                if(!first){if(suffix.Length>0){Environment.ExitCode=1;return;}try{using(var show=EventWaitHandle.OpenExisting("Local\\FoxFriend.Show"))show.Set();}catch(WaitHandleCannotBeOpenedException){}return;}
                 try{var app=new Application();using(var theme=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("FoxFriend.Theme.xaml"))app.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Load(theme));var window=new FoxWindow();if(args.Contains("--smoke")){window.DiagnosticMode=true;window.ShowInTaskbar=true;window.Loaded+=delegate{window.SmokeCheck();};}
-                    using(var show=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\FoxFriend.Show"))using(var stop=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\FoxFriend.Close")){
+                    using(var show=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\FoxFriend.Show"+suffix))using(var stop=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\FoxFriend.Close"+suffix)){
                         bool alive=true;ThreadPool.QueueUserWorkItem(delegate{try{while(alive){int signal=WaitHandle.WaitAny(new WaitHandle[]{show,stop},500);if(signal==WaitHandle.WaitTimeout)continue;if(!app.Dispatcher.HasShutdownStarted)app.Dispatcher.BeginInvoke(new Action(delegate{if(signal==0)window.ShowCompanion();else window.Close();}));}}catch(ObjectDisposedException){}});app.Run(window);alive=false;
                     }
                 }
