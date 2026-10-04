@@ -1,0 +1,9 @@
+*.exe
+*.zip
+*.log
+installer/payload/
+tests/renders/
+tests/setup-*/
+backups/
+release/
+settings.json

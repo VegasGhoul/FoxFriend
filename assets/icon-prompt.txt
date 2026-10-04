@@ -1,0 +1,4 @@
+Tool: built-in image_gen.imagegen. transparent_background: true.
+Reference: user's original orange fox with teal scarf.
+
+Use case: identity-preserve. Asset type: Windows desktop application icon. Reference image: the cute orange fox with cream muzzle, huge brown eyes and teal scarf. Create a single clean isolated HEAD AND SHOULDERS app icon of this same fox, front facing, cheerful, two ears fully visible, tiny teal scarf at base. Genuine transparent alpha background. Fill 90% of square canvas, generous enough padding to keep ears intact. Simplify the fur detail for excellent legibility at 32 pixels, retain the warm polished illustrated style and glossy brown eyes. No letters, no text, no background shape, no border, no checkerboard, no cast shadow. Crisp smooth opaque colored edges with antialiasing only at boundary.
