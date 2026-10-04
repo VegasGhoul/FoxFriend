@@ -85,6 +85,29 @@ class LogicTests {
         Expect(!books.Respond("Драконы").Text.Contains("Что тебе в них интересно"),"do not repeat same branch question");
         var noLoop=new TopicConversation();noLoop.Control("Давай про музыку");var unique=new System.Collections.Generic.HashSet<string>();for(int i=0;i<5;i++){string answer=noLoop.Continue("дальше").Text;Expect(unique.Add(answer),"no question cycle "+i);}Expect(!noLoop.Continue("дальше").Text.Contains("цепляет"),"no restart after question exhaustion");
         books.Respond("Давай про фильмы");Expect(!books.Respond("напомни тему").Text.Contains("Четвертое крыло"),"new topic clears work title");
+        foreach(string phrase in new[]{"закончим тему","Давай закончим эту тему","Лисичка, закроем тему, пожалуйста","Можно закончить разговор?","Хочу завершить обсуждение","Не хочу больше об этом говорить","Я больше не хочу обсуждать книги","Хватит про книги","Давай не будем об этом","Мне надоела эта тема","Прекрати спрашивать про книги","Ладно, отложим пока разговор"}){
+            var flow=new TopicConversation();flow.Control("Давай про книги");flow.Continue("Четвертое крыло");var stopped=flow.Control(phrase);Expect(stopped!=null&&!flow.Active&&flow.Continue("дальше")==null,"release topic: "+phrase);
+        }
+        foreach(string phrase in new[]{"Сменим тему","Давай поменяем тему","Хочу сменить тему","Можешь сменить тему?","Можно поговорить о другом?","Давай о чём-нибудь другом","Хочу поговорить на другую тему","Теперь лучше про другое","Переключимся на другую тему","Предложи другую тему разговора"}){
+            var flow=new TopicConversation();flow.Control("Давай про книги");var switched=flow.Control(phrase);Expect(switched!=null&&switched.Text.Contains("1.")&&!flow.Active,"switch topic: "+phrase);
+        }
+        foreach(string phrase in new[]{"Давай поговорим","Я хочу просто поговорить","Поговори со мной","Можно поболтать?","Хочу пообщаться","Лисичка, давай просто поболтаем","Хочется поговорить с тобой"}){
+            var flow=new TopicConversation();flow.Control("Давай про книги");var free=flow.Control(phrase);Expect(free!=null&&free.Text.Contains("на уме")&&!flow.Active,"free talk: "+phrase);
+        }
+        foreach(string phrase in new[]{"А давай лучше о музыке","Теперь хочу поговорить про музыку","Закончим тему и давай поговорим о музыке"}){var flow=new Companion();flow.Respond("Давай про книги");Expect(flow.Respond(phrase).Text.Contains("Какая музыка"),"named switch: "+phrase);}
+        foreach(string phrase in new[]{"Не меняй тему","Я не хочу заканчивать тему","Не надо менять тему"}){var flow=new TopicConversation();flow.Control("Давай про книги");Expect(flow.Control(phrase)!=null&&flow.Active,"negated stop: "+phrase);}
+        foreach(string phrase in new[]{"Я закончил книгу","Герой сказал: закончим тему","В книге поменяли тему разговора"}){var flow=new TopicConversation();flow.Control("Давай про книги");Expect(flow.Control(phrase)==null&&flow.Active,"not a control request: "+phrase);}
+        var phoneChat=new Companion();phoneChat.Respond("Давай про книги");phoneChat.Respond("Четвертое крыло");Expect(phoneChat.Respond("У меня сломался телефон").Text.Contains("техник"),"new subject bypasses book guide");Expect(!phoneChat.Respond("дальше").Text.Contains("мир книги"),"old topic does not return");
+        var mathChat=new Companion();mathChat.Respond("Давай про книги");Expect(mathChat.Respond("Сколько будет 23 + 19?").Text.Contains("42"),"math during topic");
+        var fresh=new Companion();fresh.Respond("Давай про книги");fresh.Respond("закончим тему");Expect(!fresh.Respond("Мне нравится рок").Text.Contains("мир книги"),"after stop routes fresh message");
+        var workStop=new Companion();workStop.Respond("Есть вопрос по работе");workStop.Respond("Закончим тему");Expect(!workStop.Respond("разговор").Text.Contains("С кем"),"stop clears analyzer context");
+        var unrelated=new TopicConversation();unrelated.Control("Давай про книги");unrelated.Continue("Четвертое крыло");Expect(unrelated.Continue("Что ты умеешь?")==null&&!unrelated.Active,"unknown question not book continuation");
+        var unknownSwitch=new TopicConversation();unknownSwitch.Control("Давай про книги");Expect(unknownSwitch.Control("Давай поговорим о садоводстве")!=null&&!unknownSwitch.Active,"unknown destination releases topic");
+        foreach(string phrase in new[]{"Закончи эту тему","С этой темой закончили","Не хочу об этом","Закончим с этой темой"}){var flow=new TopicConversation();flow.Control("Давай про книги");Expect(flow.Control(phrase)!=null&&!flow.Active,"more stop forms: "+phrase);}
+        foreach(string phrase in new[]{"Хочу обсудить другую тему","Давай начнем новую тему","Что-нибудь другое"}){var flow=new TopicConversation();flow.Control("Давай про книги");Expect(flow.Control(phrase).Text.Contains("1.")&&!flow.Active,"more switch forms: "+phrase);}
+        foreach(string phrase in new[]{"Хочу с тобой поговорить","Давай поговорим на любую тему","Давай просто поговорим ни о чем"}){var flow=new TopicConversation();flow.Control("Давай про книги");Expect(flow.Control(phrase).Text.Contains("на уме")&&!flow.Active,"more free talk forms: "+phrase);}
+        var recall=new Companion();recall.Respond("Давай про книги");recall.Respond("Четвертое крыло");Expect(recall.Respond("О чем мы говорили?").Text.Contains("Четвертое крыло"),"memory question not topic change");Expect(recall.Respond("О чем она?").Text.Contains("нет надёжной справки"),"anaphoric book question");
+        Expect(recall.Respond("Давай обсудим музыку").Text.Contains("Какая музыка"),"discuss named subject");
         Console.WriteLine("PASS: "+n+" behavior checks");
     }
 }

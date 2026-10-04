@@ -34,6 +34,8 @@ namespace Lisichka {
             new Topic("новости",@"новост\w*|новость|событи\w*|произошло|случилось","Я не получаю новости из интернета, но могу обсудить то, что ты расскажешь.","Что в этой новости тебя больше всего задело или порадовало?")
         };
         List<Topic> previous=new List<Topic>();string previousText="";int contextAge;
+        public void ClearContext(){previous.Clear();previousText="";contextAge=0;}
+        public static bool HasSubject(string text){string t=Intent.Normalize(text);return topics.Any(x=>Regex.IsMatch(t,@"\b(?:"+x.Pattern+@")\b"))||Regex.IsMatch(text,@"\d\s*[+*/×÷−-]\s*\d");}
         public static int HeartCount(string text,bool affection){string n=Intent.Normalize(text);if(Intent.Negative(n))return 2;if(Regex.IsMatch(n,@"\b(?:побед\w*|поступил\w*|сдал\w*|получилось|повысили|свадьб\w*|родил\w*|исполнил\w*)\b"))return 12;if(affection)return Regex.IsMatch(n,@"обожа|сильно|очень")?10:6;if(Intent.Positive(n))return 5;if(Regex.IsMatch(n,@"спасибо|благодар"))return 3;return 1;}
         public Reply Respond(string text){
             string normalized=Intent.Normalize(text);

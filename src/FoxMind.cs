@@ -19,6 +19,7 @@ namespace Lisichka {
         readonly Random random=new Random();
         string lastTopic="", name=""; int contextTurns;
         public void SetName(string value){name=value??"";}
+        public void ClearContext(){lastTopic="";contextTurns=0;}
         public int ExampleCount { get { return samples.Count; } }
         public int TopicCount { get { return answers.Count; } }
         public int FeatureCount { get { return idf.Count; } }
